@@ -6,4 +6,4 @@ We may simulate an infinite lattice system by imposing unlimited periodic bounda
 
 I demonstrate the implementation of Ewald summation for classical point dipoles on the simple cubic lattice. Results from an older version of this code are featured in a publication by Bovo et. al. on special tempuratures of magnetic systems with competing ferromagnetic and antiferromagnetic order.
 
-![Nature Communicationsvolume 9, Article number: 1999 (2018)](https://doi.org/10.1038/s41467-018-04297-3)
+[Nature Communicationsvolume 9, Article number: 1999 (2018)](https://doi.org/10.1038/s41467-018-04297-3)
