@@ -1,1 +1,1 @@
-# Lattice_Dipole_Ewald_Summation
+# Ewald Summation for Lattice Dipoles
