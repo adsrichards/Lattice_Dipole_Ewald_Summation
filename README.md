@@ -10,5 +10,4 @@ My code calculates the coupling matrix using the Ewald summation method and runs
 
 ---
 ![](EwaldSum_Summarized-1.png)
-***
 ![](EwaldSum_Summarized-2.png)
