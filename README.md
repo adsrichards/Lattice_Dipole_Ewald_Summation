@@ -8,6 +8,7 @@ My code calculates the coupling matrix using the Ewald summation method and runs
 
 [Nature Communications volume 9, Article number: 1999 (2018)](https://doi.org/10.1038/s41467-018-04297-3)
 
+---
 ![](EwaldSum_Summarized-1.png)
 ***
 ![](EwaldSum_Summarized-2.png)
