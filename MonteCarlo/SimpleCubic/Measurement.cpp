@@ -9,6 +9,11 @@ Measurement::Measurement(double T)
 	fout.open(OUTFILE, std::ios_base::app);
 }
 
+Measurement::~Measurement()
+{
+	fout.close();
+}
+
 void Measurement::measure(double cosTh, double phi, double M, double E, double T)
 {
 	//------ output measurements ------//

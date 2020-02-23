@@ -51,6 +51,7 @@ private:
 	std::ofstream fout;
 public:
 	Measurement(double T);
+	~Measurement();
 	void measure(double cosTh, double phi, double M, double E, double T);
 };
 
