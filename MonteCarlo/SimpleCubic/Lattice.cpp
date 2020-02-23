@@ -1,27 +1,39 @@
-#include "Simulation.h"
-#include <iostream>
+#include <random>
 
-#define ISQRT2 0.7071067811865475
-#define ISQRT3 0.5773502691896258
+#include "Simulation.h"
 
 Lattice::Lattice()
 {
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::uniform_real_distribution<double> dis(0, 1);
+
 	//============= Initialize Geometry =============//
 	
+	double px = 1-2*dis(gen);
+	double py = 1-2*dis(gen);
+	double pz = 1-2*dis(gen);
+
+	double p = sqrt(px*px + py*py + pz*pz);
+
+	px /= p;
+	py /= p;
+	pz /= p;
+
 	int nS = 0;	
-	for(double x=-L/2 + 0.5; x<L/2 + 1e-8; x++){
-		for(double y=-L/2 + 0.5; y<L/2 + 1e-8; y++){
-			for(double z=-L/2 + 0.5; z<L/2 + 1e-8; z++)
+	for(double l1=-L/2 + 0.5; l1<L/2 + 1e-8; l1++){
+		for(double l2=-L/2 + 0.5; l2<L/2 + 1e-8; l2++){
+			for(double l3=-L/2 + 0.5; l3<L/2 + 1e-8; l3++)
 			{
-				rS[nS][0] = x;
-				rS[nS][1] = y;
-				rS[nS][2] = z;
+				rS[nS][0] = l1*a1[0] + l2*a2[0] + l3*a3[0];
+				rS[nS][1] = l1*a1[1] + l2*a2[1] + l3*a3[1];
+				rS[nS][2] = l1*a1[2] + l2*a2[2] + l3*a3[2];
 	
-				pS[nS][0] = 0;
-				pS[nS][1] = 0;
-				pS[nS][2] = 1;
+				pS[nS][0] = px;
+				pS[nS][1] = py;
+				pS[nS][2] = pz;
 				
-				nS++;				
+				nS++;
 			}
 		}
 	}
@@ -31,17 +43,18 @@ Lattice::Lattice()
 	//------ build n ------//
 
 	const int nmax = (2*ncut+1)*(2*ncut+1)*(2*ncut+1);
-	double n[nmax][3];
+	double R[nmax][3];
 	int nn = 0;
-	for(int x=-ncut; x<ncut+1; x++){
-		for(int y=-ncut; y<ncut+1; y++){
-			for(int z=-ncut; z<ncut+1; z++){
-
-				n[nn][0] = x;
-				n[nn][1] = y;
-				n[nn][2] = z;
-
-				if(x*x + y*y + z*z <= ncut*ncut){nn++;}
+	for(int n1=-ncut; n1<ncut+1; n1++){
+		for(int n2=-ncut; n2<ncut+1; n2++){
+			for(int n3=-ncut; n3<ncut+1; n3++){
+				if(n1*n1 + n2*n2 + n3*n3 <= ncut*ncut)
+				{
+					R[nn][0] = (n1*a1[0] + n2*a2[0] + n3*a3[0])*L;
+					R[nn][1] = (n1*a1[1] + n2*a2[1] + n3*a3[1])*L;
+					R[nn][2] = (n1*a1[2] + n2*a2[2] + n3*a3[2])*L;
+					nn++;
+				}
 			}
 		}
 	}
@@ -49,19 +62,19 @@ Lattice::Lattice()
 	//------ build k ------//
 
 	const int kmax = (2*kcut+1)*(2*kcut+1)*(2*kcut+1);
-	double k[kmax][3];
-	double ksqr[kmax];
+	double G[kmax][3];
+	double Gsqr[kmax];
 	int kn = 0;
-	for(int x=-kcut; x<kcut+1; x++){
-		for(int y=-kcut; y<kcut+1; y++){
-			for(int z=-kcut; z<kcut+1; z++){
-
-				k[kn][0] = 2*M_PI*x/L;
-				k[kn][1] = 2*M_PI*y/L;
-				k[kn][2] = 2*M_PI*z/L;
-				ksqr[kn] = 4*M_PI*M_PI*(x*x + y*y + z*z)/(L*L);
-
-				if( (ksqr[kn] != 0) && (x*x + y*y + z*z <= kcut*kcut) ){kn++;}
+	for(int k1=-kcut; k1<kcut+1; k1++){
+		for(int k2=-kcut; k2<kcut+1; k2++){
+			for(int k3=-kcut; k3<kcut+1; k3++){
+				if(k1*k1 + k2*k2 + k3*k3 <= kcut*kcut)
+				{
+					G[kn][0] = (k1*b1[0] + k2*b2[0] + k3*b3[0])*2*M_PI/L;
+					G[kn][1] = (k1*b1[1] + k2*b2[1] + k3*b3[1])*2*M_PI/L;
+					G[kn][2] = (k1*b1[2] + k2*b2[2] + k3*b3[2])*2*M_PI/L;
+					kn++;
+				}
 			}
 		}
 	}
@@ -71,25 +84,18 @@ Lattice::Lattice()
 	for(int i=0; i<N; i++){
 		for(int j=0; j<N; j++){
 		
-			//------ minimum image convention PBC ------//
+			//------ displacement vector ------//
 			double rij[3];
-
 			rij[0] = rS[j][0] - rS[i][0];
-			if(fabs(rij[0]) > L/2){rij[0] -= L + 2*signbit(rij[0])*L;}
-
 			rij[1] = rS[j][1] - rS[i][1];
-			if(fabs(rij[1]) > L/2){rij[1] -= L + 2*signbit(rij[1])*L;}
-		
 			rij[2] = rS[j][2] - rS[i][2];
-			if(fabs(rij[2]) > L/2){rij[2] -= L + 2*signbit(rij[2])*L;}
 
-			
 			//------ position space part ------//
 			for(int in=0; in<nn; in++){
 
-				double r1 = rij[0] + n[in][0]*L;
-				double r2 = rij[1] + n[in][1]*L;
-				double r3 = rij[2] + n[in][2]*L;
+				double r1 = rij[0] + R[in][0];
+				double r2 = rij[1] + R[in][1];
+				double r3 = rij[2] + R[in][2];
 		
 				double r = sqrt(r1*r1 + r2*r2 + r3*r3);
 				
@@ -106,33 +112,28 @@ Lattice::Lattice()
 				}
 			}
 		
-				
 			//------ reciprocal space part ------//
 			for(int n=0; n<kn; n++){
 		
-				double k_dot_rij = k[n][0]*rij[0] + k[n][1]*rij[1] + k[n][2]*rij[2];
-				double k_factor = 4.0*M_PI/(V*ksqr[n])*exp(-ksqr[n]/(4.0*kap*kap))*cos(k_dot_rij);
-		
-				Jxx[i][j] +=  k[n][0]*k[n][0]*k_factor;
-				Jyy[i][j] +=  k[n][1]*k[n][1]*k_factor;
-				Jzz[i][j] +=  k[n][2]*k[n][2]*k_factor;
-				Jxy[i][j] +=  k[n][0]*k[n][1]*k_factor;
-				Jyz[i][j] +=  k[n][1]*k[n][2]*k_factor;
-				Jxz[i][j] +=  k[n][0]*k[n][2]*k_factor;
+				double G_dot_rij = G[n][0]*rij[0] + G[n][1]*rij[1] + G[n][2]*rij[2];
+				double Gsq = G[n][0]*G[n][0] + G[n][1]*G[n][1] + G[n][2]*G[n][2];
+					
+				if(Gsq != 0){
+					double G_factor = 4.0*M_PI/(V*Gsq)*exp(-Gsq/(4.0*kap*kap))*cos(G_dot_rij);
+					Jxx[i][j] +=  G[n][0]*G[n][0]*G_factor;
+					Jyy[i][j] +=  G[n][1]*G[n][1]*G_factor;
+					Jzz[i][j] +=  G[n][2]*G[n][2]*G_factor;
+					Jxy[i][j] +=  G[n][0]*G[n][1]*G_factor;
+					Jyz[i][j] +=  G[n][1]*G[n][2]*G_factor;
+					Jxz[i][j] +=  G[n][0]*G[n][2]*G_factor;
+				}
 			}
-			
 		}
 
-
 		//------ self interaction part ------//
-		
 		Jxx[i][i] -= 4.0/3.0*kap*kap*kap/sqrt(M_PI);
 		Jyy[i][i] -= 4.0/3.0*kap*kap*kap/sqrt(M_PI);
 		Jzz[i][i] -= 4.0/3.0*kap*kap*kap/sqrt(M_PI);
-		Jxy[i][i] = 0;
-		Jyz[i][i] = 0;
-		Jxz[i][i] = 0;
-		
 	}
 
 	//============= Inititalize Local Fields =============//
@@ -147,21 +148,20 @@ Lattice::Lattice()
 			}
 		}
 	}
-
+	
 	//============= Inititalize Energy =============//
 
 	E = 0;
 	for(int i=0; i<N; i++){
-		for(int j=0; j<N; j++){
-			E += pS[i][0]*(Jxx[i][j]*pS[j][0] + Jxy[i][j]*pS[j][1] + Jxz[i][j]*pS[j][2])
-			   + pS[i][1]*(Jxy[i][j]*pS[j][0] + Jyy[i][j]*pS[j][1] + Jyz[i][j]*pS[j][2])
-			   + pS[i][2]*(Jxz[i][j]*pS[j][0] + Jyz[i][j]*pS[j][1] + Jzz[i][j]*pS[j][2]);
-		}
+		E +=  pS[i][0]*pS[i][0]*Jxx[i][i]
+			+ pS[i][1]*pS[i][1]*Jyy[i][i]
+			+ pS[i][2]*pS[i][2]*Jzz[i][i]
+			+ pS[i][0]*H[i][0] 
+			+ pS[i][1]*H[i][1]
+			+ pS[i][2]*H[i][2];
 	}
-	E *= 0.5;
+	E /= 2;
 
-	std::cout << E << std::endl;
-	
 	//============= Inititalize Magnetization =============//
 
 	double M1=0, M2=0, M3=0;
@@ -170,76 +170,15 @@ Lattice::Lattice()
 			M2 += pS[i][1];
 			M3 += pS[i][2];
 	}
+
 	M = sqrt(M1*M1 + M2*M2 + M3*M3);
 
-	//phi = atan2(M2,M1);
-	//cosPh = cos(phi);
-	//sinPh = sin(phi);
-	//cosTh = M3/M;
-	//sinTh = sqrt(1 - cosTh*cosTh);
-
-	//============= Initialize Directional Parameters ==============//
-
-	//------ d100 ------//
-	double Md100[6][3] = 
-	{
-		{ 1 - M1/M,  0 - M2/M,  0 - M3/M},
-		{ 0 - M1/M,  1 - M2/M,  0 - M3/M},
-		{ 0 - M1/M,  0 - M2/M,  1 - M3/M},
-		{-1 - M1/M,  0 - M2/M,  0 - M3/M},
-		{ 0 - M1/M, -1 - M2/M,  0 - M3/M},
-		{ 0 - M1/M,  0 - M2/M, -1 - M3/M}
-	};			
-				
-	double Md100n[6];
-	for(int i=0; i<6; i++){Md100n[i] = sqrt(Md100[i][0]*Md100[i][0] + Md100[i][1]*Md100[i][1] + Md100[i][2]*Md100[i][2]);}
-
-	d100 = Md100n[0];
-	for(int i=1; i<6; i++){d100 = fmin(d100, Md100n[i]);}
-
-	//------ d110 ------//
-	double Md110[8][3] = 
-	{
-		{ ISQRT2 - M1/M, 0 - M2/M,	 ISQRT2 - M3/M},
-		{-ISQRT2 - M1/M, 0 - M2/M,	 ISQRT2 - M3/M},
-		{ ISQRT2 - M1/M, 0 - M2/M,	-ISQRT2 - M3/M},
-		{-ISQRT2 - M1/M, 0 - M2/M,	-ISQRT2 - M3/M},
-		{ 0 - M1/M,	 ISQRT2 - M2/M,	 ISQRT2 - M3/M},
-		{ 0 - M1/M,	-ISQRT2 - M2/M,	 ISQRT2 - M3/M},
-		{ 0 - M1/M,	 ISQRT2 - M2/M,	-ISQRT2 - M3/M},
-		{ 0 - M1/M,	-ISQRT2 - M2/M,	-ISQRT2 - M3/M}
-	};
-
-	double Md110n[8];
-	for(int i=0; i<8; i++){Md110n[i] = sqrt(Md110[i][0]*Md110[i][0] + Md110[i][1]*Md110[i][1] + Md110[i][2]*Md110[i][2]);}
-
-	d110 = Md110n[0];
-	for(int i=1; i<8; i++){d110 = fmin(d110, Md110n[i]);}
-
-
-	//------ d111 ------//
-	double Md111[8][3] = 
-	{
-		{ ISQRT3 - M1/M,  ISQRT3 - M2/M,  ISQRT3 - M3/M},
-		{-ISQRT3 - M1/M,  ISQRT3 - M2/M,  ISQRT3 - M3/M},
-		{-ISQRT3 - M1/M, -ISQRT3 - M2/M,  ISQRT3 - M3/M},
-		{ ISQRT3 - M1/M, -ISQRT3 - M2/M,  ISQRT3 - M3/M},
-		{ ISQRT3 - M1/M,  ISQRT3 - M2/M, -ISQRT3 - M3/M},
-		{-ISQRT3 - M1/M,  ISQRT3 - M2/M, -ISQRT3 - M3/M},
-		{-ISQRT3 - M1/M, -ISQRT3 - M2/M, -ISQRT3 - M3/M},
-		{ ISQRT3 - M1/M, -ISQRT3 - M2/M, -ISQRT3 - M3/M}
-	};
-
-	double Md111n[8];
-	for(int i=0; i<8; i++){Md111n[i] = sqrt(Md111[i][0]*Md111[i][0] + Md111[i][1]*Md111[i][1] + Md111[i][2]*Md111[i][2]);}
-
-	d111 = Md111n[0];
-	for(int i=1; i<8; i++){d111 = fmin(d111, Md111n[i]);}
+	phi = atan2(M2,M1);
+	cosTh = M3/M;
 }
 
+
 //============= Lattice Updating Function =============//
-
-
 
 void Lattice::update(int j, double delE, double pS1_new, double pS2_new, double pS3_new)
 {
@@ -265,79 +204,14 @@ void Lattice::update(int j, double delE, double pS1_new, double pS2_new, double 
 		}
 	}
 
+	E += delE;
+
 	M = sqrt(M1*M1 + M2*M2 + M3*M3);
 
 	pS[j][0] = pS1_new;
 	pS[j][1] = pS2_new;
 	pS[j][2] = pS3_new;
 
-	E += delE;
-
-	//cosTh = M3/M;
-	//phi = atan2(M2,M1);
-
-	//phi = atan2(M2,M1);
-	//cosPh = cos(phi);
-	//sinPh = sin(phi);
-	//cosTh = M3/M;
-	//sinTh = sqrt(1 - cosTh*cosTh);
-
-
-	//------ d100 parameter ------//
-	double Md100[6][3] = 
-	{
-		{ 1 - M1/M,  0 - M2/M,  0 - M3/M},
-		{ 0 - M1/M,  1 - M2/M,  0 - M3/M},
-		{ 0 - M1/M,  0 - M2/M,  1 - M3/M},
-		{-1 - M1/M,  0 - M2/M,  0 - M3/M},
-		{ 0 - M1/M, -1 - M2/M,  0 - M3/M},
-		{ 0 - M1/M,  0 - M2/M, -1 - M3/M}
-	};			
-				
-	double Md100n[6];
-	for(int i=0; i<6; i++){Md100n[i] = sqrt(Md100[i][0]*Md100[i][0] + Md100[i][1]*Md100[i][1] + Md100[i][2]*Md100[i][2]);}
-
-	d100 = Md100n[0];
-	for(int i=1; i<6; i++){d100 = fmin(d100, Md100n[i]);}
-
-
-	//------ d110 parameter ------//
-	double Md110[8][3] = 
-	{
-		{ ISQRT2 - M1/M,	 0 - M2/M,			 ISQRT2 - M3/M},
-		{-ISQRT2 - M1/M,	 0 - M2/M,			 ISQRT2 - M3/M},
-		{ ISQRT2 - M1/M,	 0 - M2/M,		    -ISQRT2 - M3/M},
-		{-ISQRT2 - M1/M,	 0 - M2/M,		    -ISQRT2 - M3/M},
-		{ 0 - M1/M,			 ISQRT2 - M2/M,		 ISQRT2 - M3/M},
-		{ 0 - M1/M,			-ISQRT2 - M2/M,		 ISQRT2 - M3/M},
-		{ 0 - M1/M,			 ISQRT2 - M2/M,		-ISQRT2 - M3/M},
-		{ 0 - M1/M,			-ISQRT2 - M2/M,		-ISQRT2 - M3/M}
-	};
-
-	double Md110n[8];
-	for(int i=0; i<8; i++){Md110n[i] = sqrt(Md110[i][0]*Md110[i][0] + Md110[i][1]*Md110[i][1] + Md110[i][2]*Md110[i][2]);}
-
-	d110 = Md110n[0];
-	for(int i=1; i<8; i++){d110 = fmin(d110, Md110n[i]);}
-
-
-	//------ d111 parameter ------//
-	double Md111[8][3] = 
-	{
-		{ ISQRT3 - M1/M,	 ISQRT3 - M2/M,		 ISQRT3 - M3/M},
-		{-ISQRT3 - M1/M,	 ISQRT3 - M2/M,		 ISQRT3 - M3/M},
-		{-ISQRT3 - M1/M,	-ISQRT3 - M2/M,		 ISQRT3 - M3/M},
-		{ ISQRT3 - M1/M,	-ISQRT3 - M2/M,		 ISQRT3 - M3/M},
-		{ ISQRT3 - M1/M,	 ISQRT3 - M2/M,		-ISQRT3 - M3/M},
-		{-ISQRT3 - M1/M,	 ISQRT3 - M2/M,		-ISQRT3 - M3/M},
-		{-ISQRT3 - M1/M,	-ISQRT3 - M2/M,		-ISQRT3 - M3/M},
-		{ ISQRT3 - M1/M,	-ISQRT3 - M2/M,		-ISQRT3 - M3/M}
-	};
-
-	double Md111n[8];
-	for(int i=0; i<8; i++){Md111n[i] = sqrt(Md111[i][0]*Md111[i][0] + Md111[i][1]*Md111[i][1] + Md111[i][2]*Md111[i][2]);}
-
-	d111 = Md111n[0];
-	for(int i=1; i<8; i++){d111 = fmin(d111, Md111n[i]);}
-
+	cosTh = M3/M;
+	phi = atan2(M2,M1);
 }
